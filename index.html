@@ -125,6 +125,7 @@ footer { text-align: center; font-size: 12px; color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { .bar i { transition: width .6s ease; } }
 </style>
 
+<script src="config.js"></script>
 </head><body><div class="wrap">
   <div class="brand">
     <div class="crest">SP</div>
@@ -183,6 +184,28 @@ footer { text-align: center; font-size: 12px; color: var(--muted); }
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var LIVE = typeof google !== 'undefined' && google.script && google.script.run;
+  var GAS_URL = window.FIZIK_GAS_URL || '';
+
+  // Panggil Google Apps Script web app (doGet) melalui JSONP — tiada isu CORS
+  function gasLookup(ic, done) {
+    var cb = '__semak_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+    var s = document.createElement('script');
+    var selesai = false;
+    var tamat = setTimeout(function () { akhir({ ok: false, mesej: 'Sambungan gagal. Cuba lagi sebentar.' }); }, 20000);
+    function akhir(res) {
+      if (selesai) return; selesai = true;
+      clearTimeout(tamat);
+      try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+      if (s.parentNode) s.parentNode.removeChild(s);
+      done(res);
+    }
+    window[cb] = function (res) { akhir(res); };
+    s.onload = function () { setTimeout(function () { akhir({ ok: false, mesej: 'Pelayan markah belum dikemas kini. Sila hubungi cikgu.' }); }, 0); };
+    s.onerror = function () { akhir({ ok: false, mesej: 'Sambungan gagal. Cuba lagi sebentar.' }); };
+    s.src = GAS_URL + (GAS_URL.indexOf('?') < 0 ? '?' : '&') +
+      'ic=' + encodeURIComponent(ic) + '&callback=' + cb;
+    document.body.appendChild(s);
+  }
 
   // Data rekaan untuk paparan contoh sahaja (bukan murid sebenar)
   var DEMO = {
@@ -210,7 +233,6 @@ footer { text-align: center; font-size: 12px; color: var(--muted); }
     }, 350);
   }
 
-  if (!LIVE) $('demo').hidden = false;
 
   // format 080512-10-1234 semasa menaip
   $('ic').addEventListener('input', function (e) {
@@ -234,7 +256,8 @@ footer { text-align: center; font-size: 12px; color: var(--muted); }
       google.script.run.withSuccessHandler(done)
         .withFailureHandler(function () { done({ ok: false, mesej: 'Sambungan gagal. Cuba lagi sebentar.' }); })
         .semakMarkah(ic);
-    } else demoLookup(ic, done);
+    } else if (GAS_URL) gasLookup(ic, done);
+    else demoLookup(ic, done);
   });
 
   $('logout').addEventListener('click', function () {
